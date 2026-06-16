@@ -1,3 +1,4 @@
+const deployCommands = require("./src/utils/deployCommands");
 const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const fs = require("fs");
 
@@ -23,7 +24,10 @@ for (const file of commandFiles) {
 require("./src/events/ready")(client);
 require("./src/events/interactionCreate")(client);
 
-client.login(process.env.TOKEN);
+(async () => {
+  await deployCommands();
+  await client.login(process.env.TOKEN);
+})();
 
 // LOGS START
 console.log("==================================");
