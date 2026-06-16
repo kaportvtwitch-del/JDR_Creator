@@ -1,42 +1,102 @@
-const { SlashCommandBuilder, ChannelType } = require("discord.js");
+const {
+  SlashCommandBuilder,
+  ChannelType,
+  PermissionFlagsBits
+} = require("discord.js");
+
 const { isAllowed } = require("../../utils/permissions");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_create")
-    .setDescription("Créer une zone JDR")
+    .setDescription("Créer une zone JDR complète (catégorie + rôle + salons)")
     .addStringOption(opt =>
-      opt.setName("nom").setDescription("Nom catégorie").setRequired(true)
+      opt
+        .setName("nom")
+        .setDescription("Nom de la campagne / catégorie")
+        .setRequired(true)
     )
     .addUserOption(opt =>
-      opt.setName("membre").setDescription("Owner").setRequired(true)
+      opt
+        .setName("membre")
+        .setDescription("Propriétaire de la campagne")
+        .setRequired(true)
     ),
 
   async execute(interaction) {
     if (!isAllowed(interaction)) {
       return interaction.reply({
-        content: "⛔ Non autorisé",
+        content: "⛔ Vous n'êtes pas autorisé à utiliser cette commande.",
         ephemeral: true
       });
     }
 
-    const name = interaction.options.getString("nom");
-    const member = interaction.options.getUser("membre");
+    const nom = interaction.options.getString("nom");
+    const ownerUser = interaction.options.getUser("membre");
+
     const guild = interaction.guild;
+    const ownerMember = await guild.members.fetch(ownerUser.id);
 
-    // ROLE
+    console.log(`[JDR] Création campagne: ${nom}`);
+
+    // 1. Création du rôle joueur
     const role = await guild.roles.create({
-      name: `joueur ${name}`,
-      permissions: []
+      name: `Joueur_${nom}`,
+      mentionable: true,
+      reason: "Création JDR automatique"
     });
 
-    // CATEGORY
+    console.log(`[JDR] Rôle créé: ${role.name}`);
+
+    // 2. Création de la catégorie PRIVÉE
     const category = await guild.channels.create({
-      name,
-      type: ChannelType.GuildCategory
+      name: nom,
+      type: ChannelType.GuildCategory,
+      permissionOverwrites: [
+        {
+          id: guild.roles.everyone.id,
+          deny: [PermissionFlagsBits.ViewChannel]
+        },
+
+        {
+          id: role.id,
+          allow: [
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory,
+            PermissionFlagsBits.Connect,
+            PermissionFlagsBits.Speak
+          ]
+        },
+
+        {
+          id: ownerMember.id,
+          allow: [
+            // accès complet catégorie
+            PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory,
+            PermissionFlagsBits.Connect,
+            PermissionFlagsBits.Speak,
+
+            // gestion JDR
+            PermissionFlagsBits.ManageChannels,
+            PermissionFlagsBits.ManageRoles,
+            PermissionFlagsBits.ManageMessages,
+            PermissionFlagsBits.ManageWebhooks,
+
+            // gestion vocal
+            PermissionFlagsBits.MoveMembers,
+            PermissionFlagsBits.MuteMembers,
+            PermissionFlagsBits.DeafenMembers
+          ]
+        }
+      ]
     });
 
-    // CHANNELS
+    console.log(`[JDR] Catégorie créée: ${category.name}`);
+
+    // 3. Salons texte
     await guild.channels.create({
       name: "general",
       type: ChannelType.GuildText,
@@ -49,16 +109,29 @@ module.exports = {
       parent: category.id
     });
 
+    // 4. Salon vocal
     await guild.channels.create({
       name: "blabla",
       type: ChannelType.GuildVoice,
       parent: category.id
     });
 
-    // OWNER ROLE
-    const memberObj = await guild.members.fetch(member.id);
-    await memberObj.roles.add(role);
+    console.log(`[JDR] Salons créés`);
 
-    await interaction.reply(`✅ JDR créé: ${name}`);
+    // 5. Attribution du rôle au propriétaire
+    await ownerMember.roles.add(role);
+
+    console.log(`[JDR] Rôle attribué au propriétaire`);
+
+    // 6. Réponse finale
+    return interaction.reply({
+      content:
+        `✅ **Campagne JDR créée avec succès !**\n\n` +
+        `📁 Catégorie : **${nom}**\n` +
+        `🎭 Rôle : **Joueur_${nom}**\n` +
+        `👑 Propriétaire : ${ownerUser}\n\n` +
+        `🔒 Zone totalement privée configurée`,
+      ephemeral: false
+    });
   }
 };
