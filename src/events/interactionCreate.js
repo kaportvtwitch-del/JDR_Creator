@@ -13,23 +13,17 @@ const {
 } = require("../database/jdrRepository");
 
 // ==================================================
-// HELPERS PERMISSIONS
+// HELPERS
 // ==================================================
 function isAdmin(member) {
   return member.permissions.has(PermissionsBitField.Flags.Administrator);
 }
 
 function isGestionnaire(member, guildData) {
-  if (!guildData) return false;
-
-  return guildData.allowedRoles?.some(roleId =>
+  if (!guildData?.allowedRoles) return false;
+  return guildData.allowedRoles.some(roleId =>
     member.roles.cache.has(roleId)
   );
-}
-
-function isMJ(member, jdr) {
-  if (!jdr) return false;
-  return member.roles.cache.has(jdr.mjRoleId);
 }
 
 function canAccessGestion(member, guildData) {
@@ -37,7 +31,7 @@ function canAccessGestion(member, guildData) {
 }
 
 // ==================================================
-// MAIN EVENT
+// MAIN
 // ==================================================
 module.exports = (client) => {
 
@@ -87,7 +81,7 @@ module.exports = (client) => {
     }
 
     // ==================================================
-    // BUTTONS
+    // BUTTONS ONLY
     // ==================================================
     if (!interaction.isButton()) return;
 
@@ -95,12 +89,43 @@ module.exports = (client) => {
     const guild = interaction.guild;
     const member = interaction.member;
 
-    const guildData = await require("../database/guildRepository").getGuild(guild.id);
+    const guildData = await require("../database/guildRepository")
+      .getGuild(guild.id);
 
     try {
 
       // ==================================================
-      // 🎛 PANEL ADMIN
+      // 🏠 MAIN PANEL BACK
+      // ==================================================
+      if (id === "back_panel") {
+
+        const embed = new EmbedBuilder()
+          .setTitle("🎲 Panel JDR")
+          .setColor(0x00aeff)
+          .setDescription("Choisis une section");
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("panel_admin")
+            .setLabel("👑 Admin")
+            .setStyle(ButtonStyle.Danger),
+
+          new ButtonBuilder()
+            .setCustomId("panel_gestion")
+            .setLabel("🛠 Gestion")
+            .setStyle(ButtonStyle.Primary),
+
+          new ButtonBuilder()
+            .setCustomId("panel_mj")
+            .setLabel("🎲 MJ")
+            .setStyle(ButtonStyle.Success)
+        );
+
+        return interaction.update({ embeds: [embed], components: [row] });
+      }
+
+      // ==================================================
+      // 👑 ADMIN PANEL (gestion ONLY)
       // ==================================================
       if (id === "panel_admin") {
 
@@ -111,23 +136,23 @@ module.exports = (client) => {
         const embed = new EmbedBuilder()
           .setTitle("👑 Panel Admin")
           .setColor(0xff0000)
-          .setDescription("Gestion globale du serveur JDR");
+          .setDescription("Gestion des gestionnaires uniquement");
 
         const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId("jdr_create")
-            .setLabel("➕ Créer JDR")
+            .setCustomId("jdr_gestion_add")
+            .setLabel("➕ Ajouter gestionnaire")
             .setStyle(ButtonStyle.Success),
 
           new ButtonBuilder()
-            .setCustomId("jdr_list")
-            .setLabel("📜 Liste JDR")
-            .setStyle(ButtonStyle.Primary),
+            .setCustomId("jdr_gestion_del")
+            .setLabel("➖ Retirer gestionnaire")
+            .setStyle(ButtonStyle.Danger),
 
           new ButtonBuilder()
-            .setCustomId("jdr_gestion_add")
-            .setLabel("➕ Ajout gestionnaire")
-            .setStyle(ButtonStyle.Secondary),
+            .setCustomId("jdr_gestion_list")
+            .setLabel("📜 Liste gestionnaires")
+            .setStyle(ButtonStyle.Primary),
 
           new ButtonBuilder()
             .setCustomId("back_panel")
@@ -139,7 +164,7 @@ module.exports = (client) => {
       }
 
       // ==================================================
-      // 🛠 PANEL GESTION
+      // 🛠 GESTION PANEL
       // ==================================================
       if (id === "panel_gestion") {
 
@@ -164,11 +189,6 @@ module.exports = (client) => {
             .setStyle(ButtonStyle.Primary),
 
           new ButtonBuilder()
-            .setCustomId("jdr_delete")
-            .setLabel("🗑 Supprimer JDR")
-            .setStyle(ButtonStyle.Danger),
-
-          new ButtonBuilder()
             .setCustomId("back_panel")
             .setLabel("⬅ Retour")
             .setStyle(ButtonStyle.Secondary)
@@ -178,7 +198,7 @@ module.exports = (client) => {
       }
 
       // ==================================================
-      // 🎲 PANEL MJ
+      // 🎲 MJ PANEL
       // ==================================================
       if (id === "panel_mj") {
 
@@ -188,7 +208,7 @@ module.exports = (client) => {
           member.roles.cache.has(j.mjRoleId)
         );
 
-        if (mjJdrs.length === 0 && !isAdmin(member) && !isGestionnaire(member, guildData)) {
+        if (mjJdrs.length === 0) {
           return interaction.reply({
             content: "⛔ Aucun JDR MJ trouvé",
             ephemeral: true
@@ -198,7 +218,7 @@ module.exports = (client) => {
         const embed = new EmbedBuilder()
           .setTitle("🎲 Panel MJ")
           .setColor(0x00ff99)
-          .setDescription("Tes JDR disponibles");
+          .setDescription("Tes JDR");
 
         const row = new ActionRowBuilder();
 
@@ -215,37 +235,24 @@ module.exports = (client) => {
       }
 
       // ==================================================
-      // 🔙 BACK
+      // 📜 LIST JDR
       // ==================================================
-      if (id === "back_panel") {
+      if (id === "jdr_list") {
+
+        const jdrs = await getAllJdr(guild.id);
 
         const embed = new EmbedBuilder()
-          .setTitle("🎲 Panel JDR")
+          .setTitle("📜 Liste des JDR")
           .setColor(0x00aeff)
-          .setDescription("Sélectionne une section");
+          .setDescription(
+            jdrs.map(j => `• **${j.name}**`).join("\n") || "Aucun JDR"
+          );
 
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId("panel_admin")
-            .setLabel("👑 Admin")
-            .setStyle(ButtonStyle.Danger),
-
-          new ButtonBuilder()
-            .setCustomId("panel_gestion")
-            .setLabel("🛠 Gestion")
-            .setStyle(ButtonStyle.Primary),
-
-          new ButtonBuilder()
-            .setCustomId("panel_mj")
-            .setLabel("🎲 MJ")
-            .setStyle(ButtonStyle.Success)
-        );
-
-        return interaction.update({ embeds: [embed], components: [row] });
+        return interaction.update({ embeds: [embed], components: [] });
       }
 
       // ==================================================
-      // DELETE REQUEST
+      // 🗑 DELETE JDR FLOW
       // ==================================================
       if (id.startsWith("delete_jdr_")) {
 
@@ -260,10 +267,10 @@ module.exports = (client) => {
           return interaction.reply({ content: "⛔ Accès refusé", ephemeral: true });
         }
 
-        const confirmRow = new ActionRowBuilder().addComponents(
+        const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId(`confirm_delete_${jdrId}`)
-            .setLabel("✔ Oui supprimer")
+            .setLabel("✔ Confirmer")
             .setStyle(ButtonStyle.Danger),
 
           new ButtonBuilder()
@@ -273,27 +280,16 @@ module.exports = (client) => {
         );
 
         return interaction.reply({
-          content: `⚠️ Supprimer le JDR **${jdr.name}** ?`,
-          components: [confirmRow],
+          content: `Supprimer **${jdr.name}** ?`,
+          components: [row],
           ephemeral: true
         });
       }
 
-      // ==================================================
-      // CONFIRM DELETE
-      // ==================================================
       if (id.startsWith("confirm_delete_")) {
 
         const jdrId = id.replace("confirm_delete_", "");
         const jdr = await getJdr(guild.id, jdrId);
-
-        if (!jdr) {
-          return interaction.reply({ content: "❌ JDR introuvable", ephemeral: true });
-        }
-
-        if (!canAccessGestion(member, guildData)) {
-          return interaction.reply({ content: "⛔ Accès refusé", ephemeral: true });
-        }
 
         await interaction.deferUpdate();
 
@@ -312,17 +308,14 @@ module.exports = (client) => {
         await deleteJdr(guild.id, jdrId);
 
         return interaction.editReply({
-          content: `🗑️ JDR **${jdr.name}** supprimé`,
+          content: `🗑️ JDR supprimé`,
           components: []
         });
       }
 
-      // ==================================================
-      // CANCEL
-      // ==================================================
       if (id === "cancel_delete") {
         return interaction.update({
-          content: "❌ Suppression annulée",
+          content: "❌ Annulé",
           components: []
         });
       }
