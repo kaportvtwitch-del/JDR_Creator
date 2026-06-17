@@ -2,8 +2,24 @@ const fs = require("fs");
 const file = "data.json";
 
 function load() {
-  if (!fs.existsSync(file)) fs.writeFileSync(file, "{}");
-  return JSON.parse(fs.readFileSync(file));
+  try {
+    if (!fs.existsSync(file)) {
+      fs.writeFileSync(file, "{}");
+    }
+
+    const raw = fs.readFileSync(file, "utf8");
+
+    if (!raw || raw.trim() === "") {
+      return {};
+    }
+
+    return JSON.parse(raw);
+
+  } catch (err) {
+    console.log("❌ DB CORROMPUE -> reset automatique");
+    fs.writeFileSync(file, "{}");
+    return {};
+  }
 }
 
 function save(db) {
