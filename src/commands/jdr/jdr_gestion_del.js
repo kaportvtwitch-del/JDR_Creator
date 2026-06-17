@@ -5,7 +5,12 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_gestion_del")
     .setDescription("Retire un rôle autorisé")
-    .addRoleOption(o => o.setName("role").setRequired(true)),
+    .addRoleOption(o =>
+      o
+        .setName("role")
+        .setDescription("Rôle à retirer")
+        .setRequired(true)
+    ),
 
   async execute(interaction) {
     const role = interaction.options.getRole("role");

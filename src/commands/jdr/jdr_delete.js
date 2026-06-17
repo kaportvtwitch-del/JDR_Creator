@@ -5,7 +5,12 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_delete")
     .setDescription("Supprimer un JDR")
-    .addStringOption(o => o.setName("nom").setRequired(true)),
+    .addStringOption(o =>
+      o
+        .setName("nom")
+        .setDescription("Nom du JDR")
+        .setRequired(true)
+    ),
 
   async execute(interaction) {
     const nom = interaction.options.getString("nom").toLowerCase();

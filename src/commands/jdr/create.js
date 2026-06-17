@@ -11,8 +11,18 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_create")
     .setDescription("Créer un JDR")
-    .addStringOption(o => o.setName("nom").setRequired(true))
-    .addUserOption(o => o.setName("proprietaire").setRequired(true)),
+    .addStringOption(o =>
+      o
+        .setName("nom")
+        .setDescription("Nom du JDR")
+        .setRequired(true)
+    )
+    .addUserOption(o =>
+      o
+        .setName("proprietaire")
+        .setDescription("MJ du JDR")
+        .setRequired(true)
+    ),
 
   async execute(interaction) {
     if (!isAllowed(interaction)) {
@@ -63,7 +73,9 @@ module.exports = {
             PermissionFlagsBits.ManageMessages,
             PermissionFlagsBits.MuteMembers,
             PermissionFlagsBits.DeafenMembers,
-            PermissionFlagsBits.MoveMembers
+            PermissionFlagsBits.MoveMembers,
+            PermissionFlagsBits.ManageRoles,
+            PermissionFlagsBits.ManagePermissions
           ]
         }
       ]
@@ -71,7 +83,7 @@ module.exports = {
 
     await guild.channels.create({ name: "general", type: 0, parent: category.id });
     await guild.channels.create({ name: "annonce", type: 0, parent: category.id });
-    await guild.channels.create({ name: "Vocal", type: 2, parent: category.id });
+    await guild.channels.create({ name: "vocal", type: 2, parent: category.id });
 
     setJdr(guild.id, nom, {
       categoryId: category.id,

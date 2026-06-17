@@ -5,7 +5,12 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_gestion_add")
     .setDescription("Autorise un rôle à créer des JDR")
-    .addRoleOption(o => o.setName("role").setRequired(true)),
+    .addRoleOption(o =>
+      o
+        .setName("role")
+        .setDescription("Rôle autorisé")
+        .setRequired(true)
+    ),
 
   async execute(interaction) {
     const role = interaction.options.getRole("role");
