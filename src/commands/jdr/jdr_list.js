@@ -25,9 +25,9 @@ module.exports = {
     }
 
     const embed = new EmbedBuilder()
-      .setTitle("📜 Liste des JDR")
+      .setTitle("📜 **__Liste des JDR__**")
       .setColor(0x00AEFF)
-      .setDescription("🗑️ **Suppression de JDR :**");
+      .setDescription("🗑️ vous pouvez supprimer un JDR en cliquant dessus !");
 
     const rows = [];
 
