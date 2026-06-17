@@ -5,7 +5,13 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_delete")
     .setDescription("Supprimer un JDR")
-    .addStringOption(o => o.setName("id").setRequired(true)),
+
+    .addStringOption(o =>
+      o
+        .setName("id")
+        .setDescription("ID du JDR à supprimer")
+        .setRequired(true)
+    ),
 
   async execute(interaction) {
     const guild = interaction.guild;
@@ -14,9 +20,15 @@ module.exports = {
     const jdr = await getJdr(guild.id, id);
 
     if (!jdr) {
-      return interaction.reply({ content: "❌ introuvable", ephemeral: true });
+      return interaction.reply({
+        content: "❌ introuvable",
+        ephemeral: true
+      });
     }
 
+    // ======================
+    // DELETE CHANNELS
+    // ======================
     const category = guild.channels.cache.get(jdr.categoryId);
 
     if (category) {
@@ -26,11 +38,17 @@ module.exports = {
       await category.delete().catch(() => {});
     }
 
-    await guild.roles.cache.get(jdr.playersRoleId)?.delete().catch(() => {});
-    await guild.roles.cache.get(jdr.mjRoleId)?.delete().catch(() => {});
+    // ======================
+    // DELETE ROLES
+    // ======================
+    guild.roles.cache.get(jdr.playersRoleId)?.delete().catch(() => {});
+    guild.roles.cache.get(jdr.mjRoleId)?.delete().catch(() => {});
 
+    // ======================
+    // DELETE DB
+    // ======================
     await deleteJdr(guild.id, id);
 
-    return interaction.reply(`🗑️ supprimé`);
+    return interaction.reply(`🗑️ JDR supprimé`);
   }
 };
