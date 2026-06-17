@@ -10,7 +10,7 @@ const { setJdr } = require("../../database/jdrDatabase");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_create")
-    .setDescription("Créer un JDR")
+    .setDescription("Créer un JDR complet")
     .addStringOption(o =>
       o
         .setName("nom")
@@ -30,23 +30,28 @@ module.exports = {
     }
 
     const nom = interaction.options.getString("nom").toLowerCase().trim();
-    const owner = await interaction.guild.members.fetch(
+
+    const ownerMember = await interaction.guild.members.fetch(
       interaction.options.getUser("proprietaire").id
     );
 
     const guild = interaction.guild;
 
+    // 🎭 ROLE JOUEURS
     const playersRole = await guild.roles.create({
       name: `joueurs_${nom}`,
       mentionable: true
     });
 
+    // 🎩 ROLE MJ
     const mjRole = await guild.roles.create({
-      name: `mj_${nom}`
+      name: `mj_${nom}`,
+      mentionable: true
     });
 
-    await owner.roles.add(mjRole);
+    await ownerMember.roles.add(mjRole);
 
+    // 📁 CATEGORIE JDR
     const category = await guild.channels.create({
       name: nom,
       type: ChannelType.GuildCategory,
@@ -60,38 +65,76 @@ module.exports = {
           allow: [
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory,
             PermissionFlagsBits.Connect,
             PermissionFlagsBits.Speak
           ]
         },
         {
-          id: owner.id,
+          id: mjRole.id,
           allow: [
             PermissionFlagsBits.ViewChannel,
             PermissionFlagsBits.SendMessages,
+            PermissionFlagsBits.ReadMessageHistory,
             PermissionFlagsBits.ManageChannels,
             PermissionFlagsBits.ManageMessages,
+            PermissionFlagsBits.ManageRoles,
             PermissionFlagsBits.MuteMembers,
             PermissionFlagsBits.DeafenMembers,
-            PermissionFlagsBits.MoveMembers,
-            PermissionFlagsBits.ManageRoles,
-            PermissionFlagsBits.ManagePermissions
+            PermissionFlagsBits.MoveMembers
           ]
         }
       ]
     });
 
-    await guild.channels.create({ name: "general", type: 0, parent: category.id });
-    await guild.channels.create({ name: "annonce", type: 0, parent: category.id });
-    await guild.channels.create({ name: "vocal", type: 2, parent: category.id });
+    // 💬 SALON TEXTE GENERAL
+    await guild.channels.create({
+      name: "general",
+      type: ChannelType.GuildText,
+      parent: category.id
+    });
 
+    // 📢 SALON ANNONCE
+    await guild.channels.create({
+      name: "annonce",
+      type: ChannelType.GuildText,
+      parent: category.id
+    });
+
+    // 🔊 SALON VOCAL (permissions ici uniquement)
+    await guild.channels.create({
+      name: "vocal",
+      type: ChannelType.GuildVoice,
+      parent: category.id,
+      permissionOverwrites: [
+        {
+          id: playersRole.id,
+          allow: [
+            PermissionFlagsBits.Connect,
+            PermissionFlagsBits.Speak
+          ]
+        },
+        {
+          id: mjRole.id,
+          allow: [
+            PermissionFlagsBits.Connect,
+            PermissionFlagsBits.Speak,
+            PermissionFlagsBits.MuteMembers,
+            PermissionFlagsBits.DeafenMembers,
+            PermissionFlagsBits.MoveMembers
+          ]
+        }
+      ]
+    });
+
+    // 💾 SAVE DB
     setJdr(guild.id, nom, {
       categoryId: category.id,
       playersRoleId: playersRole.id,
       mjRoleId: mjRole.id,
-      ownerId: owner.id
+      ownerId: ownerMember.id
     });
 
-    return interaction.reply(`✅ JDR ${nom} créé`);
+    return interaction.reply(`✅ JDR **${nom}** créé avec succès`);
   }
 };
