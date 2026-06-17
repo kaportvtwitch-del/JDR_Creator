@@ -7,6 +7,7 @@ const {
 const { getJdr, deleteJdr } = require("../database/jdrRepository");
 
 module.exports = (client) => {
+
   client.on("interactionCreate", async (interaction) => {
 
     // ======================
@@ -17,12 +18,17 @@ module.exports = (client) => {
       if (!command) return;
 
       try {
+        await interaction.deferReply({ ephemeral: true });
+
         await command.execute(interaction);
+
       } catch (err) {
         console.log(err);
 
-        if (!interaction.replied) {
-          return interaction.reply({
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply("❌ Erreur interne");
+        } else {
+          await interaction.reply({
             content: "❌ Erreur interne",
             ephemeral: true
           });
@@ -36,6 +42,7 @@ module.exports = (client) => {
     if (!interaction.isButton()) return;
 
     const id = interaction.customId;
+    const guild = interaction.guild;
 
     // ======================
     // DELETE REQUEST
@@ -43,8 +50,6 @@ module.exports = (client) => {
     if (id.startsWith("delete_jdr_")) {
 
       const jdrId = id.replace("delete_jdr_", "");
-      const guild = interaction.guild;
-
       const jdr = await getJdr(guild.id, jdrId);
 
       if (!jdr) {
@@ -79,8 +84,6 @@ module.exports = (client) => {
     if (id.startsWith("confirm_delete_")) {
 
       const jdrId = id.replace("confirm_delete_", "");
-      const guild = interaction.guild;
-
       const jdr = await getJdr(guild.id, jdrId);
 
       if (!jdr) {
@@ -89,6 +92,8 @@ module.exports = (client) => {
           ephemeral: true
         });
       }
+
+      await interaction.deferUpdate(); // 🔥 IMPORTANT
 
       // delete channels
       const category = guild.channels.cache.get(jdr.categoryId);
@@ -107,7 +112,7 @@ module.exports = (client) => {
       // delete DB
       await deleteJdr(guild.id, jdrId);
 
-      return interaction.update({
+      return interaction.editReply({
         content: `🗑️ JDR **${jdr.name}** supprimé`,
         components: []
       });
@@ -133,5 +138,6 @@ module.exports = (client) => {
         components: []
       });
     }
+
   });
 };
