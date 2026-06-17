@@ -1,3 +1,10 @@
+process.on("uncaughtException", (err) => {
+  console.log("❌ CRASH:", err);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.log("❌ PROMISE ERROR:", err);
+});
 const deployCommands = require("./src/utils/deployCommands");
 const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const fs = require("fs");
