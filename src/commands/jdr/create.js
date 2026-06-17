@@ -11,51 +11,62 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_create")
     .setDescription("Créer un JDR")
+
     .addStringOption(o =>
-      o
-        .setName("nom")
+      o.setName("nom")
         .setDescription("Nom du JDR")
         .setRequired(true)
     )
+
     .addUserOption(o =>
-      o
-        .setName("proprietaire")
+      o.setName("proprietaire")
         .setDescription("MJ du JDR")
         .setRequired(true)
     ),
 
   async execute(interaction) {
-    if (!await isAllowed(interaction)) {
+
+    // ======================
+    // CHECK PERMISSION
+    // ======================
+    if (!isAllowed(interaction)) {
       return interaction.reply({
         content: "⛔ interdit",
-        ephemeral: true
+        flags: 64
       });
     }
 
-    const nom = interaction.options.getString("nom").toLowerCase().trim();
-
-    const ownerMember = await interaction.guild.members.fetch(
-      interaction.options.getUser("proprietaire").id
-    );
-
     const guild = interaction.guild;
 
+    const nom = interaction.options.getString("nom").toLowerCase().trim();
+    const user = interaction.options.getUser("proprietaire");
+
     // ======================
-    // ROLE JOUEURS
+    // FETCH MEMBER (IMPORTANT)
+    // ======================
+    const owner = await guild.members.fetch(user.id).catch(() => null);
+
+    if (!owner) {
+      return interaction.reply({
+        content: "❌ membre introuvable",
+        flags: 64
+      });
+    }
+
+    // ======================
+    // ROLES
     // ======================
     const playersRole = await guild.roles.create({
       name: `joueurs_${nom}`,
       mentionable: true
     });
 
-    // ======================
-    // ROLE MJ
-    // ======================
     const mjRole = await guild.roles.create({
-      name: `mj_${nom}`
+      name: `mj_${nom}`,
+      mentionable: false
     });
 
-    await ownerMember.roles.add(mjRole);
+    await owner.roles.add(mjRole);
 
     // ======================
     // CATEGORY
@@ -81,14 +92,13 @@ module.exports = {
           id: mjRole.id,
           allow: [
             PermissionFlagsBits.ViewChannel,
-            PermissionFlagsBits.SendMessages,
             PermissionFlagsBits.ManageChannels,
             PermissionFlagsBits.ManageMessages,
+            PermissionFlagsBits.ManageRoles,
             PermissionFlagsBits.MuteMembers,
             PermissionFlagsBits.DeafenMembers,
             PermissionFlagsBits.MoveMembers,
-            PermissionFlagsBits.ManageRoles,
-            PermissionFlagsBits.ManageChannels
+            PermissionFlagsBits.ManagePermissions
           ]
         }
       ]
@@ -116,27 +126,21 @@ module.exports = {
     });
 
     // ======================
-    // DB SAVE (MYSQL SAFE)
+    // DATABASE SAFE INSERT
     // ======================
-await setJdr({
-  id: category.id,
-  guildId: guild.id,
-  name: nom,
-  categoryId: category.id,
-  playersRoleId: playersRole.id,
-  mjRoleId: mjRole.id,
-  ownerId: owner.id
-});
-console.log({
-  id: category.id,
-  guildId: guild.id,
-  name: nom,
-  categoryId: category.id,
-  playersRoleId: playersRole.id,
-  mjRoleId: mjRole.id,
-  ownerId: owner.id
-});
+    await setJdr({
+      id: category.id,
+      guildId: guild.id,
+      name: nom,
+      categoryId: category.id,
+      playersRoleId: playersRole.id,
+      mjRoleId: mjRole.id,
+      ownerId: owner.id
+    });
 
-    return interaction.reply(`✅ JDR **${nom}** créé`);
+    return interaction.reply({
+      content: `✅ JDR **${nom}** créé`,
+      flags: 64
+    });
   }
 };
