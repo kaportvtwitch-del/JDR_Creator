@@ -118,18 +118,24 @@ module.exports = {
     // ======================
     // DB SAVE (MYSQL SAFE)
     // ======================
-    await setJdr(
-      guild.id,
-      nom,
-      {
-        id: category.id,
-        name: nom,
-        categoryId: category.id,
-        playersRoleId: playersRole.id,
-        mjRoleId: mjRole.id,
-        ownerId: ownerMember.id
-      }
-    );
+await setJdr({
+  id: category.id,
+  guildId: guild.id,
+  name: nom,
+  categoryId: category.id,
+  playersRoleId: playersRole.id,
+  mjRoleId: mjRole.id,
+  ownerId: owner.id
+});
+console.log({
+  id: category.id,
+  guildId: guild.id,
+  name: nom,
+  categoryId: category.id,
+  playersRoleId: playersRole.id,
+  mjRoleId: mjRole.id,
+  ownerId: owner.id
+});
 
     return interaction.reply(`✅ JDR **${nom}** créé`);
   }
