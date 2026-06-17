@@ -6,17 +6,13 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_joueur_add")
     .setDescription("Ajouter un joueur à un JDR")
-
     .addStringOption(o =>
-      o
-        .setName("jdr_id")
-        .setDescription("ID du JDR")
+      o.setName("jdr_id")
+        .setDescription("ID du JDR (categoryId)")
         .setRequired(true)
     )
-
     .addUserOption(o =>
-      o
-        .setName("joueur")
+      o.setName("joueur")
         .setDescription("Joueur à ajouter")
         .setRequired(true)
     ),
@@ -27,42 +23,58 @@ module.exports = {
     const jdrId = interaction.options.getString("jdr_id");
     const user = interaction.options.getUser("joueur");
 
-    // ======================
-    // CHECK JDR
-    // ======================
+    const member = await guild.members.fetch(user.id);
+
     const jdr = await getJdr(guild.id, jdrId);
 
     if (!jdr) {
       return interaction.reply({
         content: "❌ JDR introuvable",
-        ephemeral: true
+        flags: 64
       });
     }
 
-    // ======================
-    // CHECK MEMBER IN GUILD
-    // ======================
-    const member = await guild.members.fetch(user.id).catch(() => null);
+    // =========================
+    // 🔐 CHECK MJ (SECURITE)
+    // =========================
+    const mjRole = guild.roles.cache.get(jdr.mjRoleId);
 
-    if (!member) {
+    if (!interaction.member.roles.cache.has(mjRole?.id)) {
       return interaction.reply({
-        content: "❌ Le joueur n’est pas sur le serveur",
-        ephemeral: true
+        content: "⛔ Tu n’es pas MJ de ce JDR",
+        flags: 64
       });
     }
 
-    // ======================
-    // INSERT DB
-    // ======================
+    // =========================
+    // 🎮 GIVE PLAYER ROLE
+    // =========================
+    const playerRole = guild.roles.cache.get(jdr.playersRoleId);
+
+    if (!playerRole) {
+      return interaction.reply({
+        content: "❌ Rôle joueur introuvable",
+        flags: 64
+      });
+    }
+
+    await member.roles.add(playerRole).catch(() => {});
+
+    // =========================
+    // 💾 DB SAVE
+    // =========================
     await db.execute(
-      `INSERT INTO jdr_players (jdrId, userId)
-       VALUES (?, ?)
-       ON DUPLICATE KEY UPDATE userId = VALUES(userId)`,
+      `
+      INSERT INTO jdr_players (jdrId, userId)
+      VALUES (?, ?)
+      ON DUPLICATE KEY UPDATE userId = userId
+      `,
       [jdrId, user.id]
     );
 
-    return interaction.reply(
-      `✅ **${user.tag}** ajouté au JDR **${jdr.name}**`
-    );
+    return interaction.reply({
+      content: `✅ ${user.tag} ajouté au JDR`,
+      flags: 64
+    });
   }
 };
