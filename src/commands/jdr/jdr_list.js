@@ -14,6 +14,7 @@ module.exports = {
     .setDescription("Liste des JDR du serveur"),
 
   async execute(interaction) {
+
     const jdrs = await getAllJdr(interaction.guild.id);
 
     if (!jdrs.length) {
@@ -30,30 +31,22 @@ module.exports = {
     const rows = [];
 
     for (const jdr of jdrs) {
+
       embed.addFields({
         name: jdr.name,
-        value: `ID: \`${jdr.id}\``
+        value: `ID: \`${jdr.id}\``,
+        inline: false
       });
 
       rows.push(
         new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId(`delete_jdr_${jdr.id}`)
-            .setLabel(`Supprimer ${jdr.name}`)
+            .setLabel(`🗑 Supprimer`)
             .setStyle(ButtonStyle.Danger)
         )
       );
     }
-
-    // bouton fermer
-    rows.push(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("close_jdr_list")
-          .setLabel("Fermer")
-          .setStyle(ButtonStyle.Secondary)
-      )
-    );
 
     return interaction.reply({
       embeds: [embed],
