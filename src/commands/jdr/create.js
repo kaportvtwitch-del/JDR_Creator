@@ -78,30 +78,26 @@ module.exports = {
             PermissionFlagsBits.ReadMessageHistory,
             PermissionFlagsBits.ManageChannels,
             PermissionFlagsBits.ManageMessages,
-            PermissionFlagsBits.ManageRoles,
-            PermissionFlagsBits.MuteMembers,
-            PermissionFlagsBits.DeafenMembers,
-            PermissionFlagsBits.MoveMembers
+            PermissionFlagsBits.ManageRoles
           ]
         }
       ]
     });
 
-    // 💬 SALON TEXTE GENERAL
+    // 💬 SALONS TEXTES
     await guild.channels.create({
       name: "general",
       type: ChannelType.GuildText,
       parent: category.id
     });
 
-    // 📢 SALON ANNONCE
     await guild.channels.create({
       name: "annonce",
       type: ChannelType.GuildText,
       parent: category.id
     });
 
-    // 🔊 SALON VOCAL (permissions ici uniquement)
+    // 🔊 SALON VOCAL
     await guild.channels.create({
       name: "vocal",
       type: ChannelType.GuildVoice,
@@ -127,8 +123,9 @@ module.exports = {
       ]
     });
 
-    // 💾 SAVE DB
-    setJdr(guild.id, nom, {
+    // 💾 DB (KEY = CATEGORY ID)
+    setJdr(guild.id, category.id, {
+      name: nom,
       categoryId: category.id,
       playersRoleId: playersRole.id,
       mjRoleId: mjRole.id,
