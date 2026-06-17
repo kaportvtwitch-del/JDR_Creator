@@ -1,33 +1,33 @@
 const fs = require("fs");
-const { lockFile } = require("../config/config");
+
+const LOCK_FILE = "bot.lock";
 
 function createLock() {
-  try {
-    if (fs.existsSync(lockFile)) {
-      const pid = fs.readFileSync(lockFile, "utf8");
+  if (fs.existsSync(LOCK_FILE)) {
+    const oldPid = fs.readFileSync(LOCK_FILE, "utf8");
 
-      if (pid) {
-        try {
-          process.kill(pid, 0);
-          console.log(`[LOCK] Bot déjà actif (PID ${pid})`);
-          process.exit(1);
-        } catch {
-          console.log("[LOCK] ancien lock supprimé");
-        }
-      }
+    try {
+      process.kill(parseInt(oldPid), 0);
+      console.log(`[LOCK] Bot déjà actif (PID ${oldPid})`);
+      process.exit(1);
+    } catch (e) {
+      console.log("[LOCK] ancien lock supprimé (process mort)");
+      fs.unlinkSync(LOCK_FILE);
     }
-
-    fs.writeFileSync(lockFile, process.pid.toString());
-    console.log(`[LOCK] verrou actif PID=${process.pid}`);
-  } catch (e) {
-    console.error("[LOCK ERROR]", e);
   }
+
+  fs.writeFileSync(LOCK_FILE, process.pid.toString());
+  console.log(`[LOCK] verrou actif PID=${process.pid}`);
 }
 
 function removeLock() {
-  try {
-    if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
-  } catch {}
+  if (fs.existsSync(LOCK_FILE)) {
+    const pid = fs.readFileSync(LOCK_FILE, "utf8");
+
+    if (parseInt(pid) === process.pid) {
+      fs.unlinkSync(LOCK_FILE);
+    }
+  }
 }
 
 module.exports = { createLock, removeLock };
