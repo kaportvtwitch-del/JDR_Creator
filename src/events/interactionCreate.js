@@ -4,7 +4,7 @@ const {
   ButtonStyle
 } = require("discord.js");
 
-const { getJdr, deleteJdr } = require("../../database/jdrDatabase");
+const { getJdr, deleteJdr } = require("../database/jdrDatabase");
 
 module.exports = async (client) => {
   client.on("interactionCreate", async (interaction) => {
