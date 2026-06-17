@@ -1,9 +1,9 @@
 const {
   SlashCommandBuilder,
+  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder
+  ButtonStyle
 } = require("discord.js");
 
 const { getAllJdr } = require("../../database/jdrRepository");
@@ -11,7 +11,7 @@ const { getAllJdr } = require("../../database/jdrRepository");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_list")
-    .setDescription("Afficher la liste des JDR du serveur"),
+    .setDescription("Liste des JDR du serveur"),
 
   async execute(interaction) {
     const jdrs = await getAllJdr(interaction.guild.id);
@@ -35,25 +35,29 @@ module.exports = {
         value: `ID: \`${jdr.id}\``
       });
 
-      const deleteButton = new ButtonBuilder()
-        .setCustomId(`delete_jdr_${jdr.id}`)
-        .setLabel(`🗑 Supprimer ${jdr.name}`)
-        .setStyle(ButtonStyle.Danger);
-
-      rows.push(new ActionRowBuilder().addComponents(deleteButton));
+      rows.push(
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`delete_jdr_${jdr.id}`)
+            .setLabel(`Supprimer ${jdr.name}`)
+            .setStyle(ButtonStyle.Danger)
+        )
+      );
     }
 
-    // 🔴 bouton fermer liste
-    const closeRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("close_jdr_list")
-        .setLabel("❌ Fermer")
-        .setStyle(ButtonStyle.Secondary)
+    // bouton fermer
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("close_jdr_list")
+          .setLabel("Fermer")
+          .setStyle(ButtonStyle.Secondary)
+      )
     );
 
     return interaction.reply({
       embeds: [embed],
-      components: [...rows, closeRow],
+      components: rows,
       ephemeral: true
     });
   }

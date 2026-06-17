@@ -14,25 +14,23 @@ module.exports = (client) => {
     // SLASH COMMANDS
     // ======================
     if (interaction.isChatInputCommand()) {
+
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
 
       try {
-        await interaction.deferReply({ ephemeral: true });
-
+        // ❌ NE PAS defer ici (les commandes gèrent elles-mêmes)
         await command.execute(interaction);
 
       } catch (err) {
         console.log(err);
 
-        if (interaction.deferred || interaction.replied) {
-          await interaction.editReply("❌ Erreur interne");
-        } else {
-          await interaction.reply({
-            content: "❌ Erreur interne",
-            ephemeral: true
-          });
-        }
+        if (interaction.replied || interaction.deferred) return;
+
+        return interaction.reply({
+          content: "❌ Erreur interne",
+          ephemeral: true
+        });
       }
     }
 
@@ -44,99 +42,112 @@ module.exports = (client) => {
     const id = interaction.customId;
     const guild = interaction.guild;
 
-    // ======================
-    // DELETE REQUEST
-    // ======================
-    if (id.startsWith("delete_jdr_")) {
+    try {
 
-      const jdrId = id.replace("delete_jdr_", "");
-      const jdr = await getJdr(guild.id, jdrId);
+      // ======================
+      // DELETE REQUEST
+      // ======================
+      if (id.startsWith("delete_jdr_")) {
 
-      if (!jdr) {
-        return interaction.reply({
-          content: "❌ JDR introuvable",
-          ephemeral: true
-        });
-      }
+        const jdrId = id.replace("delete_jdr_", "");
+        const jdr = await getJdr(guild.id, jdrId);
 
-      const confirmRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`confirm_delete_${jdrId}`)
-          .setLabel("✔ Oui supprimer")
-          .setStyle(ButtonStyle.Danger),
-
-        new ButtonBuilder()
-          .setCustomId("cancel_delete")
-          .setLabel("❌ Annuler")
-          .setStyle(ButtonStyle.Secondary)
-      );
-
-      return interaction.reply({
-        content: `⚠️ Supprimer le JDR **${jdr.name}** ?`,
-        components: [confirmRow],
-        ephemeral: true
-      });
-    }
-
-    // ======================
-    // CONFIRM DELETE
-    // ======================
-    if (id.startsWith("confirm_delete_")) {
-
-      const jdrId = id.replace("confirm_delete_", "");
-      const jdr = await getJdr(guild.id, jdrId);
-
-      if (!jdr) {
-        return interaction.reply({
-          content: "❌ JDR introuvable",
-          ephemeral: true
-        });
-      }
-
-      await interaction.deferUpdate(); // 🔥 IMPORTANT
-
-      // delete channels
-      const category = guild.channels.cache.get(jdr.categoryId);
-
-      if (category) {
-        for (const ch of category.children.cache.values()) {
-          await ch.delete().catch(() => {});
+        if (!jdr) {
+          return interaction.reply({
+            content: "❌ JDR introuvable",
+            ephemeral: true
+          });
         }
-        await category.delete().catch(() => {});
+
+        const confirmRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`confirm_delete_${jdrId}`)
+            .setLabel("✔ Oui supprimer")
+            .setStyle(ButtonStyle.Danger),
+
+          new ButtonBuilder()
+            .setCustomId("cancel_delete")
+            .setLabel("❌ Annuler")
+            .setStyle(ButtonStyle.Secondary)
+        );
+
+        return interaction.reply({
+          content: `⚠️ Supprimer le JDR **${jdr.name}** ?`,
+          components: [confirmRow],
+          ephemeral: true
+        });
       }
 
-      // delete roles
-      guild.roles.cache.get(jdr.playersRoleId)?.delete().catch(() => {});
-      guild.roles.cache.get(jdr.mjRoleId)?.delete().catch(() => {});
+      // ======================
+      // CONFIRM DELETE
+      // ======================
+      if (id.startsWith("confirm_delete_")) {
 
-      // delete DB
-      await deleteJdr(guild.id, jdrId);
+        const jdrId = id.replace("confirm_delete_", "");
+        const jdr = await getJdr(guild.id, jdrId);
 
-      return interaction.editReply({
-        content: `🗑️ JDR **${jdr.name}** supprimé`,
-        components: []
-      });
-    }
+        if (!jdr) {
+          return interaction.reply({
+            content: "❌ JDR introuvable",
+            ephemeral: true
+          });
+        }
 
-    // ======================
-    // CANCEL
-    // ======================
-    if (id === "cancel_delete") {
-      return interaction.update({
-        content: "❌ Suppression annulée",
-        components: []
-      });
-    }
+        await interaction.deferUpdate(); // OK ici
 
-    // ======================
-    // CLOSE LIST
-    // ======================
-    if (id === "close_jdr_list") {
-      return interaction.update({
-        content: "📕 Liste fermée",
-        embeds: [],
-        components: []
-      });
+        // delete channels
+        const category = guild.channels.cache.get(jdr.categoryId);
+
+        if (category) {
+          for (const ch of category.children.cache.values()) {
+            await ch.delete().catch(() => {});
+          }
+          await category.delete().catch(() => {});
+        }
+
+        // delete roles
+        guild.roles.cache.get(jdr.playersRoleId)?.delete().catch(() => {});
+        guild.roles.cache.get(jdr.mjRoleId)?.delete().catch(() => {});
+
+        // delete DB
+        await deleteJdr(guild.id, jdrId);
+
+        return interaction.editReply({
+          content: `🗑️ JDR **${jdr.name}** supprimé`,
+          components: []
+        });
+      }
+
+      // ======================
+      // CANCEL DELETE
+      // ======================
+      if (id === "cancel_delete") {
+        return interaction.update({
+          content: "❌ Suppression annulée",
+          components: []
+        });
+      }
+
+      // ======================
+      // CLOSE LIST
+      // ======================
+      if (id === "close_jdr_list") {
+        return interaction.update({
+          content: "📕 Liste fermée",
+          embeds: [],
+          components: []
+        });
+      }
+
+    } catch (err) {
+      console.log(err);
+
+      if (!interaction.replied && !interaction.deferred) {
+        return interaction.reply({
+          content: "❌ Erreur interaction",
+          ephemeral: true
+        });
+      }
     }
 
   });
