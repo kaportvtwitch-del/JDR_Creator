@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { getJdr, deleteJdr } = require("../database/jdrRepository");
+const { getJdr, deleteJdr } = require("../../database/jdrRepository");
 
 module.exports = {
   data: new SlashCommandBuilder()

@@ -4,8 +4,8 @@ const {
   PermissionFlagsBits
 } = require("discord.js");
 
-const { isAllowed } = require("../utils/permissions");
-const { setJdr } = require("../database/jdrRepository");
+const { isAllowed } = require("../../utils/permissions");
+const { setJdr } = require("../../database/jdrRepository");
 
 module.exports = {
   data: new SlashCommandBuilder()
