@@ -9,7 +9,7 @@ const { isAllowed } = require("../../utils/permissions");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_create")
-    .setDescription("Créer un espace JDR privé")
+    .setDescription("Créer un JDR complet (MJ + joueurs + salons privés)")
     .addStringOption(option =>
       option
         .setName("nom")
@@ -19,65 +19,64 @@ module.exports = {
     .addUserOption(option =>
       option
         .setName("proprietaire")
-        .setDescription("Propriétaire du JDR")
+        .setDescription("MJ / propriétaire du JDR")
         .setRequired(true)
     ),
 
   async execute(interaction) {
     try {
-      // Vérification des permissions
       if (!isAllowed(interaction)) {
         return interaction.reply({
-          content: "⛔ Vous n'êtes pas autorisé à utiliser cette commande.",
+          content: "⛔ Vous n'êtes pas autorisé à créer un JDR.",
           ephemeral: true
         });
       }
 
-      const nomJdr = interaction.options.getString("nom").trim();
-      const proprietaireUser =
-        interaction.options.getUser("proprietaire");
+      const nom = interaction.options.getString("nom").trim();
+      const ownerUser = interaction.options.getUser("proprietaire");
 
       const guild = interaction.guild;
+      const owner = await guild.members.fetch(ownerUser.id);
 
-      const proprietaire = await guild.members.fetch(
-        proprietaireUser.id
-      );
+      console.log(`[JDR] Création du JDR : ${nom}`);
 
-      const roleName = `joueurs_${nomJdr}`;
+      // =========================
+      // 1. ROLES
+      // =========================
 
-      // Vérification rôle existant
-      const existingRole = guild.roles.cache.find(
-        r => r.name.toLowerCase() === roleName.toLowerCase()
-      );
-
-      if (existingRole) {
-        return interaction.reply({
-          content: `❌ Le rôle "${roleName}" existe déjà.`,
-          ephemeral: true
-        });
-      }
-
-      // Création du rôle
-      const role = await guild.roles.create({
-        name: roleName,
+      const playersRole = await guild.roles.create({
+        name: `joueurs_${nom}`,
         mentionable: true,
-        reason: `Création du JDR ${nomJdr}`
+        reason: `Création JDR ${nom}`
       });
 
-      // Création catégorie privée
+      const mjRole = await guild.roles.create({
+        name: `mj_${nom}`,
+        mentionable: false,
+        reason: `MJ du JDR ${nom}`
+      });
+
+      console.log(`[JDR] Rôles créés`);
+
+      // Donne le rôle MJ au propriétaire
+      await owner.roles.add(mjRole);
+
+      // =========================
+      // 2. CATEGORIE PRIVEE
+      // =========================
+
       const category = await guild.channels.create({
-        name: nomJdr,
+        name: nom,
         type: ChannelType.GuildCategory,
         permissionOverwrites: [
           {
             id: guild.roles.everyone.id,
-            deny: [
-              PermissionFlagsBits.ViewChannel
-            ]
+            deny: [PermissionFlagsBits.ViewChannel]
           },
 
+          // accès joueurs
           {
-            id: role.id,
+            id: playersRole.id,
             allow: [
               PermissionFlagsBits.ViewChannel,
               PermissionFlagsBits.SendMessages,
@@ -87,8 +86,9 @@ module.exports = {
             ]
           },
 
+          // accès MJ (owner)
           {
-            id: proprietaire.id,
+            id: owner.id,
             allow: [
               PermissionFlagsBits.ViewChannel,
               PermissionFlagsBits.SendMessages,
@@ -96,58 +96,66 @@ module.exports = {
               PermissionFlagsBits.Connect,
               PermissionFlagsBits.Speak,
 
+              // gestion JDR
               PermissionFlagsBits.ManageMessages,
               PermissionFlagsBits.ManageChannels,
+              PermissionFlagsBits.ManageWebhooks,
 
+              // vocal admin
               PermissionFlagsBits.MoveMembers,
               PermissionFlagsBits.MuteMembers,
               PermissionFlagsBits.DeafenMembers
             ]
           }
-        ],
-        reason: `Création du JDR ${nomJdr}`
+        ]
       });
 
-      // Salon général
+      console.log(`[JDR] Catégorie créée`);
+
+      // =========================
+      // 3. SALONS
+      // =========================
+
       await guild.channels.create({
         name: "general",
         type: ChannelType.GuildText,
-        parent: category.id,
-        reason: `Création du JDR ${nomJdr}`
+        parent: category.id
       });
 
-      // Salon annonce
       await guild.channels.create({
         name: "annonce",
         type: ChannelType.GuildText,
-        parent: category.id,
-        reason: `Création du JDR ${nomJdr}`
+        parent: category.id
       });
 
-      // Salon vocal
       await guild.channels.create({
         name: "Vocal",
         type: ChannelType.GuildVoice,
-        parent: category.id,
-        reason: `Création du JDR ${nomJdr}`
+        parent: category.id
       });
 
-      await interaction.reply({
+      console.log(`[JDR] Salons créés`);
+
+      // =========================
+      // 4. FEEDBACK
+      // =========================
+
+      return interaction.reply({
         content:
-          `✅ JDR créé avec succès\n\n` +
-          `📁 Catégorie : **${nomJdr}**\n` +
-          `🎭 Rôle : <@&${role.id}>\n` +
-          `👑 Propriétaire : ${proprietaire}\n\n` +
-          `🔒 Catégorie privée créée`,
+          `✅ **JDR créé avec succès !**\n\n` +
+          `📁 Nom : **${nom}**\n` +
+          `🎭 Joueurs : <@&${playersRole.id}>\n` +
+          `👑 MJ : <@&${mjRole.id}> (assigné à ${ownerUser})\n\n` +
+          `🔒 Catégorie privée configurée`,
         ephemeral: false
       });
 
     } catch (error) {
-      console.error("[JDR_CREATE]", error);
+      console.error("[JDR_CREATE_ERROR]", error);
 
       if (!interaction.replied) {
-        await interaction.reply({
-          content: "❌ Une erreur est survenue lors de la création du JDR.",
+        return interaction.reply({
+          content: "❌ Erreur lors de la création du JDR.",
           ephemeral: true
         });
       }
