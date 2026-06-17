@@ -6,20 +6,17 @@ const {
   EmbedBuilder
 } = require("discord.js");
 
-const { getGuild } = require("../../database/guildDatabase");
+const { getAllJdr } = require("../../database/jdrRepository");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_list")
-    .setDescription("Afficher la liste des JDR"),
+    .setDescription("Afficher la liste des JDR du serveur"),
 
   async execute(interaction) {
-    const db = getGuild(interaction.guild.id);
-    const jdrs = db?.jdr || {};
+    const jdrs = await getAllJdr(interaction.guild.id);
 
-    const keys = Object.keys(jdrs);
-
-    if (keys.length === 0) {
+    if (!jdrs.length) {
       return interaction.reply({
         content: "❌ Aucun JDR trouvé",
         ephemeral: true
@@ -32,23 +29,21 @@ module.exports = {
 
     const rows = [];
 
-    for (const id of keys) {
-      const jdr = jdrs[id];
-
+    for (const jdr of jdrs) {
       embed.addFields({
         name: jdr.name,
-        value: `ID: \`${id}\``
+        value: `ID: \`${jdr.id}\``
       });
 
-      const button = new ButtonBuilder()
-        .setCustomId(`delete_jdr_${id}`)
+      const deleteButton = new ButtonBuilder()
+        .setCustomId(`delete_jdr_${jdr.id}`)
         .setLabel(`🗑 Supprimer ${jdr.name}`)
         .setStyle(ButtonStyle.Danger);
 
-      rows.push(new ActionRowBuilder().addComponents(button));
+      rows.push(new ActionRowBuilder().addComponents(deleteButton));
     }
 
-    // 🔴 bouton fermer
+    // 🔴 bouton fermer liste
     const closeRow = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("close_jdr_list")
@@ -56,7 +51,7 @@ module.exports = {
         .setStyle(ButtonStyle.Secondary)
     );
 
-    await interaction.reply({
+    return interaction.reply({
       embeds: [embed],
       components: [...rows, closeRow],
       ephemeral: true

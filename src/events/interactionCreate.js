@@ -4,9 +4,9 @@ const {
   ButtonStyle
 } = require("discord.js");
 
-const { getJdr, deleteJdr } = require("../database/jdrDatabase");
+const { getJdr, deleteJdr } = require("../database/jdrRepository");
 
-module.exports = async (client) => {
+module.exports = (client) => {
   client.on("interactionCreate", async (interaction) => {
 
     // ======================
@@ -20,6 +20,7 @@ module.exports = async (client) => {
         await command.execute(interaction);
       } catch (err) {
         console.log(err);
+
         if (!interaction.replied) {
           return interaction.reply({
             content: "❌ Erreur interne",
@@ -30,106 +31,107 @@ module.exports = async (client) => {
     }
 
     // ======================
-    // BOUTONS
+    // BUTTONS
     // ======================
-    if (interaction.isButton()) {
+    if (!interaction.isButton()) return;
 
-      const id = interaction.customId;
+    const id = interaction.customId;
 
-      // ------------------
-      // DELETE CLICK
-      // ------------------
-      if (id.startsWith("delete_jdr_")) {
+    // ======================
+    // DELETE REQUEST
+    // ======================
+    if (id.startsWith("delete_jdr_")) {
 
-        const categoryId = id.replace("delete_jdr_", "");
-        const guild = interaction.guild;
+      const jdrId = id.replace("delete_jdr_", "");
+      const guild = interaction.guild;
 
-        const jdr = getJdr(guild.id, categoryId);
+      const jdr = await getJdr(guild.id, jdrId);
 
-        if (!jdr) {
-          return interaction.reply({
-            content: "❌ JDR introuvable",
-            ephemeral: true
-          });
-        }
-
-        // 🔥 CONFIRMATION UI
-        const confirmRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`confirm_delete_${categoryId}`)
-            .setLabel("✔ Oui supprimer")
-            .setStyle(ButtonStyle.Danger),
-
-          new ButtonBuilder()
-            .setCustomId("cancel_delete")
-            .setLabel("❌ Annuler")
-            .setStyle(ButtonStyle.Secondary)
-        );
-
+      if (!jdr) {
         return interaction.reply({
-          content: `⚠️ Supprimer le JDR **${jdr.name}** ?`,
-          components: [confirmRow],
+          content: "❌ JDR introuvable",
           ephemeral: true
         });
       }
 
-      // ------------------
-      // CONFIRM DELETE
-      // ------------------
-      if (id.startsWith("confirm_delete_")) {
+      const confirmRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`confirm_delete_${jdrId}`)
+          .setLabel("✔ Oui supprimer")
+          .setStyle(ButtonStyle.Danger),
 
-        const categoryId = id.replace("confirm_delete_", "");
-        const guild = interaction.guild;
+        new ButtonBuilder()
+          .setCustomId("cancel_delete")
+          .setLabel("❌ Annuler")
+          .setStyle(ButtonStyle.Secondary)
+      );
 
-        const jdr = getJdr(guild.id, categoryId);
+      return interaction.reply({
+        content: `⚠️ Supprimer le JDR **${jdr.name}** ?`,
+        components: [confirmRow],
+        ephemeral: true
+      });
+    }
 
-        if (!jdr) {
-          return interaction.reply({
-            content: "❌ JDR introuvable",
-            ephemeral: true
-          });
+    // ======================
+    // CONFIRM DELETE
+    // ======================
+    if (id.startsWith("confirm_delete_")) {
+
+      const jdrId = id.replace("confirm_delete_", "");
+      const guild = interaction.guild;
+
+      const jdr = await getJdr(guild.id, jdrId);
+
+      if (!jdr) {
+        return interaction.reply({
+          content: "❌ JDR introuvable",
+          ephemeral: true
+        });
+      }
+
+      // delete channels
+      const category = guild.channels.cache.get(jdr.categoryId);
+
+      if (category) {
+        for (const ch of category.children.cache.values()) {
+          await ch.delete().catch(() => {});
         }
-
-        const category = guild.channels.cache.get(jdr.categoryId);
-
-        if (category) {
-          for (const ch of category.children.cache.values()) {
-            await ch.delete().catch(() => {});
-          }
-          await category.delete().catch(() => {});
-        }
-
-        guild.roles.cache.get(jdr.playersRoleId)?.delete().catch(() => {});
-        guild.roles.cache.get(jdr.mjRoleId)?.delete().catch(() => {});
-
-        deleteJdr(guild.id, categoryId);
-
-        return interaction.update({
-          content: `🗑️ JDR **${jdr.name}** supprimé`,
-          components: []
-        });
+        await category.delete().catch(() => {});
       }
 
-      // ------------------
-      // CANCEL DELETE
-      // ------------------
-      if (id === "cancel_delete") {
-        return interaction.update({
-          content: "❌ Suppression annulée",
-          components: []
-        });
-      }
+      // delete roles
+      guild.roles.cache.get(jdr.playersRoleId)?.delete().catch(() => {});
+      guild.roles.cache.get(jdr.mjRoleId)?.delete().catch(() => {});
 
-      // ------------------
-      // CLOSE LIST
-      // ------------------
-      if (id === "close_jdr_list") {
-        return interaction.update({
-          content: "📕 Liste fermée",
-          embeds: [],
-          components: []
-        });
-      }
+      // delete DB
+      await deleteJdr(guild.id, jdrId);
+
+      return interaction.update({
+        content: `🗑️ JDR **${jdr.name}** supprimé`,
+        components: []
+      });
+    }
+
+    // ======================
+    // CANCEL
+    // ======================
+    if (id === "cancel_delete") {
+      return interaction.update({
+        content: "❌ Suppression annulée",
+        components: []
+      });
+    }
+
+    // ======================
+    // CLOSE LIST
+    // ======================
+    if (id === "close_jdr_list") {
+      return interaction.update({
+        content: "📕 Liste fermée",
+        embeds: [],
+        components: []
+      });
     }
   });
 };

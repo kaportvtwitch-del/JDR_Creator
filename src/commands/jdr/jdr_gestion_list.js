@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { getGuild } = require("../../database/guildDatabase");
+const { getGuild } = require("../../database/guildRepository");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -7,14 +7,16 @@ module.exports = {
     .setDescription("Liste des rôles autorisés"),
 
   async execute(interaction) {
-    const guild = getGuild(interaction.guild.id);
+    const guildData = await getGuild(interaction.guild.id);
 
-    if (!guild.allowedRoles.length) {
-      return interaction.reply("📭 Aucun rôle autorisé");
+    if (!guildData.allowedRoles.length) {
+      return interaction.reply("❌ Aucun rôle autorisé");
     }
 
-    return interaction.reply(
-      guild.allowedRoles.map(r => `<@&${r}>`).join("\n")
-    );
+    const roles = guildData.allowedRoles
+      .map(id => `<@&${id}>`)
+      .join("\n");
+
+    return interaction.reply(`📜 Rôles autorisés :\n${roles}`);
   }
 };

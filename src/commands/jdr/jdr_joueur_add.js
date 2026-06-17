@@ -1,51 +1,35 @@
 const { SlashCommandBuilder } = require("discord.js");
+const db = require("../../database/mysql");
+const { getJdr } = require("../../database/jdrRepository");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_joueur_add")
-    .setDescription("Ajoute un joueur à un JDR")
-    .addRoleOption(option =>
-      option
-        .setName("role")
-        .setDescription("Rôle joueurs du JDR")
-        .setRequired(true)
+    .setDescription("Ajouter un joueur à un JDR")
+    .addStringOption(o =>
+      o.setName("jdr_id").setRequired(true)
     )
-    .addUserOption(option =>
-      option
-        .setName("joueur")
-        .setDescription("Joueur à ajouter")
-        .setRequired(true)
+    .addUserOption(o =>
+      o.setName("joueur").setRequired(true)
     ),
 
   async execute(interaction) {
-    const role = interaction.options.getRole("role");
-    const joueur = interaction.options.getMember("joueur");
+    const jdrId = interaction.options.getString("jdr_id");
+    const user = interaction.options.getUser("joueur");
 
-    if (!role.name.startsWith("joueurs_")) {
-      return interaction.reply({
-        content: "❌ Ce rôle n'est pas un rôle JDR valide.",
-        ephemeral: true
-      });
+    const jdr = await getJdr(interaction.guild.id, jdrId);
+
+    if (!jdr) {
+      return interaction.reply({ content: "❌ JDR introuvable", ephemeral: true });
     }
 
-    const mjRoleName = role.name.replace("joueurs_", "mj_");
-
-    const hasMjRole =
-      interaction.member.roles.cache.some(
-        r => r.name === mjRoleName
-      );
-
-    if (!hasMjRole) {
-      return interaction.reply({
-        content: "⛔ Vous n'êtes pas MJ de ce JDR.",
-        ephemeral: true
-      });
-    }
-
-    await joueur.roles.add(role);
-
-    return interaction.reply(
-      `✅ ${joueur} ajouté au rôle ${role}`
+    await db.execute(
+      `INSERT INTO jdr_players (jdrId, userId)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE userId = userId`,
+      [jdrId, user.id]
     );
+
+    return interaction.reply(`✅ ${user.tag} ajouté au JDR`);
   }
 };
