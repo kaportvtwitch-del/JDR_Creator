@@ -10,16 +10,15 @@ module.exports = (client) => {
 
   client.on("interactionCreate", async (interaction) => {
 
-    // ======================
+    // ==================================================
     // SLASH COMMANDS
-    // ======================
+    // ==================================================
     if (interaction.isChatInputCommand()) {
 
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
 
       try {
-        // ❌ NE PAS defer ici (les commandes gèrent elles-mêmes)
         await command.execute(interaction);
 
       } catch (err) {
@@ -34,9 +33,33 @@ module.exports = (client) => {
       }
     }
 
-    // ======================
+    // ==================================================
+    // AUTOCOMPLETE (IMPORTANT POUR TES JDR)
+    // ==================================================
+    if (interaction.isAutocomplete()) {
+      const { getAllJdr } = require("../database/jdrRepository");
+
+      try {
+        const focused = interaction.options.getFocused();
+        const jdrs = await getAllJdr(interaction.guild.id);
+
+        const filtered = jdrs
+          .filter(j => j.name.toLowerCase().includes(focused.toLowerCase()))
+          .slice(0, 25)
+          .map(j => ({
+            name: j.name,
+            value: j.categoryId
+          }));
+
+        return interaction.respond(filtered);
+      } catch (err) {
+        console.log(err);
+      }
+    }
+
+    // ==================================================
     // BUTTONS
-    // ======================
+    // ==================================================
     if (!interaction.isButton()) return;
 
     const id = interaction.customId;
@@ -93,9 +116,11 @@ module.exports = (client) => {
           });
         }
 
-        await interaction.deferUpdate(); // OK ici
+        await interaction.deferUpdate();
 
-        // delete channels
+        // ======================
+        // DELETE CHANNELS
+        // ======================
         const category = guild.channels.cache.get(jdr.categoryId);
 
         if (category) {
@@ -105,11 +130,15 @@ module.exports = (client) => {
           await category.delete().catch(() => {});
         }
 
-        // delete roles
+        // ======================
+        // DELETE ROLES
+        // ======================
         guild.roles.cache.get(jdr.playersRoleId)?.delete().catch(() => {});
         guild.roles.cache.get(jdr.mjRoleId)?.delete().catch(() => {});
 
-        // delete DB
+        // ======================
+        // DELETE DB
+        // ======================
         await deleteJdr(guild.id, jdrId);
 
         return interaction.editReply({
@@ -122,6 +151,7 @@ module.exports = (client) => {
       // CANCEL DELETE
       // ======================
       if (id === "cancel_delete") {
+
         return interaction.update({
           content: "❌ Suppression annulée",
           components: []
@@ -132,6 +162,7 @@ module.exports = (client) => {
       // CLOSE LIST
       // ======================
       if (id === "close_jdr_list") {
+
         return interaction.update({
           content: "📕 Liste fermée",
           embeds: [],
@@ -149,6 +180,5 @@ module.exports = (client) => {
         });
       }
     }
-
   });
 };

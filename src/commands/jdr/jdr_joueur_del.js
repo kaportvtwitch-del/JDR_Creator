@@ -6,11 +6,14 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_joueur_del")
     .setDescription("Retirer un joueur d’un JDR")
+
     .addStringOption(o =>
-      o.setName("jdr_id")
-        .setDescription("ID du JDR")
+      o.setName("jdr")
+        .setDescription("JDR")
         .setRequired(true)
+        .setAutocomplete(true)
     )
+
     .addUserOption(o =>
       o.setName("joueur")
         .setDescription("Joueur à retirer")
@@ -18,61 +21,46 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const guild = interaction.guild;
-
-    const jdrId = interaction.options.getString("jdr_id");
+    const jdrId = interaction.options.getString("jdr");
     const user = interaction.options.getUser("joueur");
 
-    const member = await guild.members.fetch(user.id);
-
-    const jdr = await getJdr(guild.id, jdrId);
+    const jdr = await getJdr(interaction.guild.id, jdrId);
 
     if (!jdr) {
-      return interaction.reply({
-        content: "❌ JDR introuvable",
-        flags: 64
-      });
+      return interaction.reply({ content: "❌ JDR introuvable", ephemeral: true });
     }
 
-    // =========================
-    // 🔐 CHECK MJ (SECURITE)
-    // =========================
-    const mjRole = guild.roles.cache.get(jdr.mjRoleId);
+    const member = await interaction.guild.members.fetch(interaction.user.id);
 
-    if (!interaction.member.roles.cache.has(mjRole?.id)) {
+    // 🔒 SEULEMENT MJ OU OWNER
+    const isOwner = jdr.ownerId === interaction.user.id;
+    const isMJ = member.roles.cache.has(jdr.mjRoleId);
+
+    if (!isOwner && !isMJ) {
       return interaction.reply({
         content: "⛔ Tu n’es pas MJ de ce JDR",
-        flags: 64
+        ephemeral: true
       });
     }
 
-    // =========================
-    // 🧹 REMOVE ROLE DISCORD
-    // =========================
-    const playerRole = guild.roles.cache.get(jdr.playersRoleId);
+    const target = await interaction.guild.members.fetch(user.id);
 
-    if (playerRole) {
-      await member.roles.remove(playerRole).catch(() => {});
-    }
-
-    // =========================
-    // 🗄️ REMOVE DB
-    // =========================
-    const [result] = await db.execute(
+    // ======================
+    // DB DELETE
+    // ======================
+    await db.execute(
       `DELETE FROM jdr_players WHERE jdrId = ? AND userId = ?`,
       [jdrId, user.id]
     );
 
-    if (result.affectedRows === 0) {
-      return interaction.reply({
-        content: "❌ Ce joueur n’est pas dans la base",
-        flags: 64
-      });
-    }
+    // ======================
+    // REMOVE ROLE JOUEUR
+    // ======================
+    await target.roles.remove(jdr.playersRoleId).catch(() => null);
 
     return interaction.reply({
-      content: `🗑️ **${user.tag}** retiré du JDR`,
-      flags: 64
+      content: `🗑️ ${user.tag} retiré du JDR **${jdr.name}**`,
+      ephemeral: true
     });
   }
 };

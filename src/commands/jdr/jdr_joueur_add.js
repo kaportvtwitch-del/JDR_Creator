@@ -6,11 +6,14 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_joueur_add")
     .setDescription("Ajouter un joueur à un JDR")
+
     .addStringOption(o =>
-      o.setName("jdr_id")
-        .setDescription("ID du JDR (categoryId)")
+      o.setName("jdr")
+        .setDescription("JDR")
         .setRequired(true)
+        .setAutocomplete(true)
     )
+
     .addUserOption(o =>
       o.setName("joueur")
         .setDescription("Joueur à ajouter")
@@ -18,63 +21,48 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const guild = interaction.guild;
-
-    const jdrId = interaction.options.getString("jdr_id");
+    const jdrId = interaction.options.getString("jdr");
     const user = interaction.options.getUser("joueur");
 
-    const member = await guild.members.fetch(user.id);
-
-    const jdr = await getJdr(guild.id, jdrId);
+    const jdr = await getJdr(interaction.guild.id, jdrId);
 
     if (!jdr) {
-      return interaction.reply({
-        content: "❌ JDR introuvable",
-        flags: 64
-      });
+      return interaction.reply({ content: "❌ JDR introuvable", ephemeral: true });
     }
 
-    // =========================
-    // 🔐 CHECK MJ (SECURITE)
-    // =========================
-    const mjRole = guild.roles.cache.get(jdr.mjRoleId);
+    const member = await interaction.guild.members.fetch(interaction.user.id);
 
-    if (!interaction.member.roles.cache.has(mjRole?.id)) {
+    // 🔒 SEULEMENT MJ OU OWNER
+    const isOwner = jdr.ownerId === interaction.user.id;
+    const isMJ = member.roles.cache.has(jdr.mjRoleId);
+
+    if (!isOwner && !isMJ) {
       return interaction.reply({
         content: "⛔ Tu n’es pas MJ de ce JDR",
-        flags: 64
+        ephemeral: true
       });
     }
 
-    // =========================
-    // 🎮 GIVE PLAYER ROLE
-    // =========================
-    const playerRole = guild.roles.cache.get(jdr.playersRoleId);
+    const target = await interaction.guild.members.fetch(user.id);
 
-    if (!playerRole) {
-      return interaction.reply({
-        content: "❌ Rôle joueur introuvable",
-        flags: 64
-      });
-    }
+    // ======================
+    // ROLE JOUEUR
+    // ======================
+    await target.roles.add(jdr.playersRoleId).catch(() => null);
 
-    await member.roles.add(playerRole).catch(() => {});
-
-    // =========================
-    // 💾 DB SAVE
-    // =========================
+    // ======================
+    // DB
+    // ======================
     await db.execute(
-      `
-      INSERT INTO jdr_players (jdrId, userId)
-      VALUES (?, ?)
-      ON DUPLICATE KEY UPDATE userId = userId
-      `,
+      `INSERT INTO jdr_players (jdrId, userId)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE userId = userId`,
       [jdrId, user.id]
     );
 
     return interaction.reply({
-      content: `✅ ${user.tag} ajouté au JDR`,
-      flags: 64
+      content: `✅ ${user.tag} ajouté au JDR **${jdr.name}**`,
+      ephemeral: true
     });
   }
 };
