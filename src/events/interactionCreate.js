@@ -32,6 +32,16 @@ function canGestion(member, guildData) {
 }
 
 // ==================================================
+// SAFE REPLY SYSTEM (ANTI CRASH)
+// ==================================================
+async function safeReply(interaction, payload) {
+  if (interaction.replied || interaction.deferred) {
+    return interaction.followUp(payload);
+  }
+  return interaction.reply(payload);
+}
+
+// ==================================================
 // MAIN
 // ==================================================
 module.exports = (client) => {
@@ -65,7 +75,6 @@ module.exports = (client) => {
     if (interaction.isAutocomplete()) {
       try {
         const jdrs = await getAllJdr(interaction.guild.id);
-
         const focused = interaction.options.getFocused();
 
         return interaction.respond(
@@ -91,7 +100,7 @@ module.exports = (client) => {
     const guild = interaction.guild;
     const member = interaction.member;
 
-    let guildData;
+    let guildData = null;
     try {
       guildData = await getGuild(guild.id);
     } catch (e) {
@@ -104,8 +113,12 @@ module.exports = (client) => {
       // PANEL ADMIN
       // ==================================================
       if (id === "panel_admin") {
+
         if (!isAdmin(member)) {
-          return interaction.reply({ content: "⛔ Admin uniquement", ephemeral: true });
+          return safeReply(interaction, {
+            content: "⛔ Admin uniquement",
+            ephemeral: true
+          });
         }
 
         const embed = new EmbedBuilder()
@@ -114,9 +127,9 @@ module.exports = (client) => {
           .setDescription("Gestion gestionnaires");
 
         const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("jdr_gestion_add").setLabel("➕ Add gestionnaire").setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId("jdr_gestion_del").setLabel("➖ Del gestionnaire").setStyle(ButtonStyle.Danger),
-          new ButtonBuilder().setCustomId("jdr_gestion_list").setLabel("📜 List gestionnaires").setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId("jdr_gestion_add").setLabel("➕ Add").setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId("jdr_gestion_del").setLabel("➖ Del").setStyle(ButtonStyle.Danger),
+          new ButtonBuilder().setCustomId("jdr_gestion_list").setLabel("📜 List").setStyle(ButtonStyle.Primary),
           new ButtonBuilder().setCustomId("back_panel").setLabel("⬅ Back").setStyle(ButtonStyle.Secondary)
         );
 
@@ -127,8 +140,12 @@ module.exports = (client) => {
       // PANEL GESTION
       // ==================================================
       if (id === "panel_gestion") {
+
         if (!canGestion(member, guildData)) {
-          return interaction.reply({ content: "⛔ Refusé", ephemeral: true });
+          return safeReply(interaction, {
+            content: "⛔ Refusé",
+            ephemeral: true
+          });
         }
 
         const embed = new EmbedBuilder()
@@ -138,7 +155,7 @@ module.exports = (client) => {
         const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId("jdr_create").setLabel("➕ Créer JDR").setStyle(ButtonStyle.Success),
           new ButtonBuilder().setCustomId("jdr_list").setLabel("📜 Liste JDR").setStyle(ButtonStyle.Primary),
-          new ButtonBuilder().setCustomId("jdr_delete").setLabel("🗑 Delete JDR").setStyle(ButtonStyle.Danger),
+          new ButtonBuilder().setCustomId("jdr_delete").setLabel("🗑 Delete").setStyle(ButtonStyle.Danger),
           new ButtonBuilder().setCustomId("back_panel").setLabel("⬅ Back").setStyle(ButtonStyle.Secondary)
         );
 
@@ -146,25 +163,29 @@ module.exports = (client) => {
       }
 
       // ==================================================
-      // PANEL MJ (SAFE FIX ROW LIMIT)
+      // PANEL MJ (SAFE + FIX ROW LIMIT)
       // ==================================================
       if (id === "panel_mj") {
 
         const jdrs = await getAllJdr(guild.id);
         const mjJdrs = jdrs.filter(j => member.roles.cache.has(j.mjRoleId));
 
+        if (mjJdrs.length === 0) {
+          return safeReply(interaction, {
+            content: "❌ Aucun JDR MJ",
+            ephemeral: true
+          });
+        }
+
         const embed = new EmbedBuilder()
           .setTitle("🎲 Panel MJ")
           .setColor(0x00ff99);
 
-        if (mjJdrs.length === 0) {
-          return interaction.reply({ content: "❌ Aucun JDR MJ", ephemeral: true });
-        }
-
         const rows = [];
         let row = new ActionRowBuilder();
 
-        mjJdrs.slice(0, 5).forEach((j, i) => {
+        for (const j of mjJdrs.slice(0, 10)) {
+
           if (row.components.length === 5) {
             rows.push(row);
             row = new ActionRowBuilder();
@@ -173,12 +194,12 @@ module.exports = (client) => {
           row.addComponents(
             new ButtonBuilder()
               .setCustomId(`mj_jdr_${j.id}`)
-              .setLabel(j.name)
+              .setLabel(j.name.slice(0, 80))
               .setStyle(ButtonStyle.Primary)
           );
-        });
+        }
 
-        if (row.components.length > 0) rows.push(row);
+        if (row.components.length) rows.push(row);
 
         return interaction.update({ embeds: [embed], components: rows });
       }
@@ -187,6 +208,7 @@ module.exports = (client) => {
       // BACK
       // ==================================================
       if (id === "back_panel") {
+
         const embed = new EmbedBuilder()
           .setTitle("🎲 Panel JDR")
           .setColor(0x00aeff);
@@ -201,7 +223,7 @@ module.exports = (client) => {
       }
 
       // ==================================================
-      // DELETE FLOW SAFE
+      // DELETE FLOW (SAFE FIX)
       // ==================================================
       if (id.startsWith("delete_jdr_")) {
 
@@ -209,15 +231,18 @@ module.exports = (client) => {
         const jdr = await getJdr(guild.id, jdrId);
 
         if (!jdr) {
-          return interaction.reply({ content: "❌ JDR introuvable", ephemeral: true });
+          return safeReply(interaction, {
+            content: "❌ JDR introuvable",
+            ephemeral: true
+          });
         }
 
         const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(`confirm_delete_${jdrId}`).setLabel("✔ Oui").setStyle(ButtonStyle.Danger),
-          new ButtonBuilder().setCustomId("cancel_delete").setLabel("❌ Non").setStyle(ButtonStyle.Secondary)
+          new ButtonBuilder().setCustomId(`confirm_delete_${jdrId}`).setStyle(ButtonStyle.Danger).setLabel("✔ Oui"),
+          new ButtonBuilder().setCustomId("cancel_delete").setStyle(ButtonStyle.Secondary).setLabel("❌ Non")
         );
 
-        return interaction.reply({
+        return safeReply(interaction, {
           content: `Supprimer **${jdr.name}** ?`,
           components: [row],
           ephemeral: true
@@ -229,11 +254,17 @@ module.exports = (client) => {
         const jdrId = id.replace("confirm_delete_", "");
         const jdr = await getJdr(guild.id, jdrId);
 
-        if (!jdr) return interaction.reply({ content: "❌ introuvable", ephemeral: true });
+        if (!jdr) {
+          return safeReply(interaction, {
+            content: "❌ introuvable",
+            ephemeral: true
+          });
+        }
 
         await interaction.deferUpdate();
 
         const category = guild.channels.cache.get(jdr.categoryId);
+
         if (category) {
           for (const ch of category.children.cache.values()) {
             await ch.delete().catch(() => {});
@@ -253,16 +284,19 @@ module.exports = (client) => {
       }
 
       if (id === "cancel_delete") {
-        return interaction.update({ content: "❌ annulé", components: [] });
+        return interaction.update({
+          content: "❌ annulé",
+          components: []
+        });
       }
 
       // ==================================================
-      // FALLBACK SAFE
+      // FALLBACK SAFE (IMPORTANT FIX)
       // ==================================================
-      console.log("❌ BUTTON NON GÉRÉ :", id);
+      console.log("⚠️ BUTTON NON GÉRÉ :", id);
 
-      return interaction.reply({
-        content: "⚠️ Action inconnue",
+      return safeReply(interaction, {
+        content: "⚠️ Action non disponible",
         ephemeral: true
       });
 
