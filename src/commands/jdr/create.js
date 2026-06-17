@@ -26,7 +26,7 @@ module.exports = {
 
   async execute(interaction) {
     if (!isAllowed(interaction)) {
-      return interaction.reply({ content: "⛔ interdit", ephemeral: true });
+      return interaction.reply({ content: "⛔ Vous n'êtes pas autoriser à utiliser cette commande", ephemeral: true });
     }
 
     const nom = interaction.options.getString("nom").toLowerCase().trim();
