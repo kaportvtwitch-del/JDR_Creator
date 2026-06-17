@@ -26,23 +26,22 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle("📜 Liste des JDR")
-      .setColor(0x00AEFF);
+      .setColor(0x00AEFF)
+      .setDescription("🗑️ **Suppression de JDR :**");
 
     const rows = [];
 
     for (const jdr of jdrs) {
 
-      embed.addFields({
-        name: jdr.name,
-        value: `ID: \`${jdr.id}\``,
-        inline: false
-      });
+      const safeName = jdr.name.length > 50
+        ? jdr.name.slice(0, 47) + "..."
+        : jdr.name;
 
       rows.push(
         new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId(`delete_jdr_${jdr.id}`)
-            .setLabel(`🗑 Supprimer`)
+            .setLabel(`🗑 ${safeName}`)
             .setStyle(ButtonStyle.Danger)
         )
       );
