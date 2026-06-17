@@ -1,10 +1,10 @@
-const { getGuild } = require("./database");
+const { getGuild } = require("../database/guildDatabase");
 
 function isAllowed(interaction) {
-  const guildData = getGuild(interaction.guild.id);
+  const data = getGuild(interaction.guild.id);
 
   return interaction.member.roles.cache.some(role =>
-    guildData.allowedRoles.includes(role.id)
+    data.allowedRoles.includes(role.id)
   );
 }
 
