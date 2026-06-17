@@ -11,13 +11,11 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_create")
     .setDescription("Créer un JDR")
-
     .addStringOption(o =>
       o.setName("nom")
         .setDescription("Nom du JDR")
         .setRequired(true)
     )
-
     .addUserOption(o =>
       o.setName("proprietaire")
         .setDescription("MJ du JDR")
@@ -25,10 +23,6 @@ module.exports = {
     ),
 
   async execute(interaction) {
-
-    // ======================
-    // CHECK PERMISSION
-    // ======================
     if (!isAllowed(interaction)) {
       return interaction.reply({
         content: "⛔ interdit",
@@ -36,26 +30,23 @@ module.exports = {
       });
     }
 
-    const guild = interaction.guild;
+    const nom = interaction.options.getString("nom")?.toLowerCase().trim();
+    const ownerUser = interaction.options.getUser("proprietaire");
 
-    const nom = interaction.options.getString("nom").toLowerCase().trim();
-    const user = interaction.options.getUser("proprietaire");
-
-    // ======================
-    // FETCH MEMBER (IMPORTANT)
-    // ======================
-    const owner = await guild.members.fetch(user.id).catch(() => null);
-
-    if (!owner) {
+    if (!nom || !ownerUser) {
       return interaction.reply({
-        content: "❌ membre introuvable",
+        content: "❌ paramètres invalides",
         flags: 64
       });
     }
 
-    // ======================
+    const guild = interaction.guild;
+
+    const owner = await guild.members.fetch(ownerUser.id);
+
+    // =========================
     // ROLES
-    // ======================
+    // =========================
     const playersRole = await guild.roles.create({
       name: `joueurs_${nom}`,
       mentionable: true
@@ -66,11 +57,11 @@ module.exports = {
       mentionable: false
     });
 
-    await owner.roles.add(mjRole);
+    await owner.roles.add(mjRole).catch(() => {});
 
-    // ======================
+    // =========================
     // CATEGORY
-    // ======================
+    // =========================
     const category = await guild.channels.create({
       name: nom,
       type: ChannelType.GuildCategory,
@@ -92,21 +83,21 @@ module.exports = {
           id: mjRole.id,
           allow: [
             PermissionFlagsBits.ViewChannel,
+            PermissionFlagsBits.SendMessages,
             PermissionFlagsBits.ManageChannels,
             PermissionFlagsBits.ManageMessages,
             PermissionFlagsBits.ManageRoles,
             PermissionFlagsBits.MuteMembers,
             PermissionFlagsBits.DeafenMembers,
-            PermissionFlagsBits.MoveMembers,
-            PermissionFlagsBits.ManagePermissions
+            PermissionFlagsBits.MoveMembers
           ]
         }
       ]
     });
 
-    // ======================
+    // =========================
     // CHANNELS
-    // ======================
+    // =========================
     await guild.channels.create({
       name: "general",
       type: ChannelType.GuildText,
@@ -125,21 +116,25 @@ module.exports = {
       parent: category.id
     });
 
-    // ======================
-    // DATABASE SAFE INSERT
-    // ======================
-    await setJdr({
-      id: category.id,
-      guildId: guild.id,
-      name: nom,
-      categoryId: category.id,
-      playersRoleId: playersRole.id,
-      mjRoleId: mjRole.id,
-      ownerId: owner.id
-    });
+    // =========================
+    // DB SAFE SAVE
+    // =========================
+    try {
+      await setJdr(guild.id, nom, {
+        id: category.id,
+        guildId: guild.id,
+        name: nom,
+        categoryId: category.id,
+        playersRoleId: playersRole.id,
+        mjRoleId: mjRole.id,
+        ownerId: owner.id
+      });
+    } catch (err) {
+      console.error("❌ DB ERROR setJdr:", err);
+    }
 
     return interaction.reply({
-      content: `✅ JDR **${nom}** créé`,
+      content: `✅ JDR **${nom}** créé avec succès`,
       flags: 64
     });
   }
