@@ -1,10 +1,17 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
+const {
+  SlashCommandBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder
+} = require("discord.js");
+
 const { getGuild } = require("../../database/guildDatabase");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("jdr_list")
-    .setDescription("Afficher la liste des JDR du serveur"),
+    .setDescription("Afficher la liste des JDR"),
 
   async execute(interaction) {
     const db = getGuild(interaction.guild.id);
@@ -41,9 +48,17 @@ module.exports = {
       rows.push(new ActionRowBuilder().addComponents(button));
     }
 
+    // 🔴 bouton fermer
+    const closeRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("close_jdr_list")
+        .setLabel("❌ Fermer")
+        .setStyle(ButtonStyle.Secondary)
+    );
+
     await interaction.reply({
       embeds: [embed],
-      components: rows,
+      components: [...rows, closeRow],
       ephemeral: true
     });
   }
