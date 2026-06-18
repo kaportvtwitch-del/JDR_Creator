@@ -24,7 +24,7 @@ module.exports = {
 
   async execute(interaction) {
 
-    if (!isAllowed(interaction)) {
+      if (!(await isAllowed(interaction))) {
       return interaction.reply({
         content: "⛔ Tu n’as pas la permission",
         ephemeral: true

@@ -1,45 +1,51 @@
 const { getGuild } = require("../database/guildRepository");
-
-// ======================
-// ROLES AUTORISÉS (ton système actuel)
-// ======================
-async function isAllowed(interaction) {
-  const guildData = await getGuild(interaction.guild.id);
-
-  const memberRoles = interaction.member.roles.cache.map(r => r.id);
-
-  return memberRoles.some(role =>
-    guildData.allowedRoles.includes(role)
-  );
-}
+const { PermissionsBitField } = require("discord.js");
 
 // ======================
 // ADMIN DISCORD
 // ======================
 function isAdmin(interaction) {
-  return interaction.member.permissions.has("Administrator");
+  return interaction.member.permissions.has(
+    PermissionsBitField.Flags.Administrator
+  );
 }
 
 // ======================
-// GESTIONNAIRE GLOBAL (DB + admin)
+// ROLES AUTORISÉS
+// (Admin OU rôle gestionnaire)
 // ======================
-async function isGestionnaire(interaction) {
+async function isAllowed(interaction) {
+
+  // Admin = toujours autorisé
   if (isAdmin(interaction)) return true;
 
   const guildData = await getGuild(interaction.guild.id);
 
+  if (!guildData) return false;
+
+  const allowedRoles = guildData.allowedRoles || [];
+
   const memberRoles = interaction.member.roles.cache.map(r => r.id);
 
-  return memberRoles.some(role =>
-    guildData.allowedRoles.includes(role)
+  return memberRoles.some(roleId =>
+    allowedRoles.includes(roleId)
   );
+}
+
+// ======================
+// GESTIONNAIRE GLOBAL
+// ======================
+async function isGestionnaire(interaction) {
+  return await isAllowed(interaction);
 }
 
 // ======================
 // MJ D'UN JDR
 // ======================
 function isMJ(interaction, jdr) {
+
   if (!jdr) return false;
+
   return interaction.member.roles.cache.has(jdr.mjRoleId);
 }
 
@@ -47,14 +53,17 @@ function isMJ(interaction, jdr) {
 // ACCÈS PANEL GESTION
 // ======================
 async function canAccessGestion(interaction) {
-  return await isGestionnaire(interaction);
+  return await isAllowed(interaction);
 }
 
 // ======================
 // ACCÈS PANEL MJ
 // ======================
 function canAccessMJ(interaction, jdr) {
-  return isAdmin(interaction) || isMJ(interaction, jdr);
+
+  if (isAdmin(interaction)) return true;
+
+  return isMJ(interaction, jdr);
 }
 
 module.exports = {
