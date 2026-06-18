@@ -76,6 +76,14 @@ module.exports = {
               PermissionFlagsBits.SendMessages,
               PermissionFlagsBits.ReadMessageHistory,
               PermissionFlagsBits.Connect,
+              PermissionFlagsBits.ManageThreads,
+              PermissionFlagsBits.CreatePublicThreads,
+              PermissionFlagsBits.CreatePrivateThreads,
+              PermissionFlagsBits.SendMessagesInThreads,
+              PermissionFlagsBits.MuteMembers,
+              PermissionFlagsBits.DeafenMembers,
+              PermissionFlagsBits.MoveMembers,
+              PermissionFlagsBits.UseVAD,
               PermissionFlagsBits.Speak
             ]
           },
@@ -85,7 +93,9 @@ module.exports = {
               PermissionFlagsBits.ViewChannel,
               PermissionFlagsBits.SendMessages,
               PermissionFlagsBits.ReadMessageHistory,
+              PermissionFlagsBits.SendMessagesInThreads,
               PermissionFlagsBits.Connect,
+              PermissionFlagsBits.UseVAD,
               PermissionFlagsBits.Speak
             ]
           }
